@@ -1,29 +1,27 @@
 {
-  "name": "frontend",
+  "name": "pdf-editor-frontend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.3",
     "fabric": "^7.4.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwindcss": "^4.3.3",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.2"
   }
