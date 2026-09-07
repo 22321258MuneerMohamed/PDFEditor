@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { getPdfInfo } from '../services/pdf.service.js'
+import { extractTextBlocks } from '../services/pdfText.service.js'
 
 export async function uploadPdf(
   req: Request,
@@ -26,6 +27,31 @@ export async function uploadPdf(
         size: req.file.size,
         pageCount: info.pageCount,
       },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function extractPdfText(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: 'No PDF file was uploaded.',
+      })
+      return
+    }
+
+    const pages = await extractTextBlocks(req.file.buffer)
+
+    res.status(200).json({
+      success: true,
+      pages,
     })
   } catch (error) {
     next(error)
