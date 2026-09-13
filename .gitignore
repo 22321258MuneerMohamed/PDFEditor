@@ -1,64 +1,41 @@
-# ==========================================
 # Dependencies
-# ==========================================
-
 node_modules/
+frontend/node_modules/
+backend/node_modules/
 
-
-# ==========================================
 # Environment variables
-# ==========================================
-
 .env
 .env.*
 !.env.example
 
+backend/.env
 
-# ==========================================
 # Build output
-# ==========================================
-
 dist/
 build/
 
-
-# ==========================================
 # Backend uploaded/processed files
-# ==========================================
-
 backend/uploads/*
 backend/processed/*
 
 !backend/uploads/.gitkeep
 !backend/processed/.gitkeep
 
-
-# ==========================================
 # Logs
-# ==========================================
-
 *.log
 
-
-# ==========================================
-# Operating system files
-# ==========================================
-
+# OS files
 .DS_Store
 Thumbs.db
 
-
-# ==========================================
-# IDE/editor files
-# ==========================================
-
+# IDE
 .vscode/
 .idea/
 
-
-# ==========================================
 # Temporary files
-# ==========================================
-
 *.tmp
 *.temp
+
+# PDF editor test files
+backend/test-files/*
+!backend/test-files/.gitkeep
