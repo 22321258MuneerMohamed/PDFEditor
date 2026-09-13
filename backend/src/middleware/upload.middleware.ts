@@ -4,7 +4,12 @@ import { env } from '../config/env.js'
 const storage = multer.memoryStorage()
 
 const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
+  const isPdfMimeType = file.mimetype === 'application/pdf'
+  const isPdfExtension = file.originalname
+    .toLowerCase()
+    .endsWith('.pdf')
+
+  if (isPdfMimeType || isPdfExtension) {
     cb(null, true)
     return
   }
