@@ -73,33 +73,7 @@ export async function editPdf(
       return
     }
 
-    if (!req.body.edits) {
-      res.status(400).json({
-        success: false,
-        message: 'No text edits were provided.',
-      })
-      return
-    }
-
-    let edits: TextEdit[]
-
-    try {
-      edits = JSON.parse(req.body.edits)
-    } catch {
-      res.status(400).json({
-        success: false,
-        message: 'The edits field must contain valid JSON.',
-      })
-      return
-    }
-
-    if (!Array.isArray(edits)) {
-      res.status(400).json({
-        success: false,
-        message: 'Edits must be an array.',
-      })
-      return
-    }
+    const edits = req.body.parsedEdits as TextEdit[]
 
     const editedPdf = await applyTextEdits(
       req.file.buffer,
@@ -116,7 +90,9 @@ export async function editPdf(
       'attachment; filename="edited.pdf"',
     )
 
-    res.status(200).send(Buffer.from(editedPdf))
+    res.status(200).send(
+      Buffer.from(editedPdf),
+    )
   } catch (error) {
     next(error)
   }

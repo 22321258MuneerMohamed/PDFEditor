@@ -6,6 +6,7 @@ export interface TextBlock {
   y: number
   width: number
   height: number
+  fontSize: number
 }
 
 export interface PdfPageText {
@@ -48,10 +49,17 @@ export async function extractTextBlocks(
       const transform = item.transform
 
       const x = transform[4]
-      const y = viewport.height - transform[5]
 
-      const width = item.width
-      const height = Math.abs(transform[3]) || 1
+      const fontSize = Math.sqrt(
+  transform[0] ** 2 + transform[1] ** 2,
+)
+
+const height = Math.abs(transform[3]) || 1
+
+
+const y = viewport.height - transform[5] - height
+
+const width = item.width
 
       blocks.push({
         text: item.str,
@@ -59,6 +67,8 @@ export async function extractTextBlocks(
         y,
         width,
         height,
+          fontSize,
+
       })
     }
 

@@ -10,7 +10,10 @@ export interface TextEdit {
   y: number
   width: number
   height: number
+    fontSize?: number
+
   newText: string
+  
 }
 
 export async function applyTextEdits(
@@ -19,7 +22,9 @@ export async function applyTextEdits(
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(buffer)
 
-  const font = await pdf.embedFont(StandardFonts.Helvetica)
+  const font = await pdf.embedFont(
+    StandardFonts.Helvetica,
+  )
 
   for (const edit of edits) {
     if (
@@ -31,12 +36,67 @@ export async function applyTextEdits(
       )
     }
 
-    const page = pdf.getPage(edit.pageNumber - 1)
+    if (edit.width <= 0 || edit.height <= 0) {
+      throw new Error(
+        'Edit width and height must be greater than zero.',
+      )
+    }
 
+    const page = pdf.getPage(
+      edit.pageNumber - 1,
+    )
+const pageWidth = page.getWidth()
+const pageHeight = page.getHeight()
+
+if (
+  edit.x >= pageWidth ||
+  edit.y >= pageHeight
+) {
+  throw new Error(
+    `Edit coordinates are outside page ${edit.pageNumber}.`,
+  )
+}
+
+if (
+  edit.x + edit.width > pageWidth ||
+  edit.y + edit.height > pageHeight
+) {
+  throw new Error(
+    `Edit area exceeds the boundaries of page ${edit.pageNumber}.`,
+  )
+}
     const pdfY =
-      page.getHeight() - edit.y - edit.height
+      page.getHeight() -
+      edit.y -
+      edit.height
 
-    // Cover the original text.
+    // Small padding so replacement text does not
+    // touch the edges of the original text box.
+    const padding = Math.min(
+      edit.height * 0.1,
+      2,
+    )
+
+    const availableWidth =
+      edit.width - padding * 2
+
+    const availableHeight =
+      edit.height - padding * 2
+
+    /*
+     * Start with a font size based on the
+     * original text height.
+     */
+    const fontSize =
+  edit.fontSize ??
+  Math.max(availableHeight * 0.9, 8)
+
+    /*
+     * Cover the original text.
+     *
+     * This is visual replacement only and should
+     * NOT be considered secure redaction.
+     */
     page.drawRectangle({
       x: edit.x,
       y: pdfY,
@@ -46,11 +106,23 @@ export async function applyTextEdits(
       borderWidth: 0,
     })
 
-    // Draw replacement text.
+    /*
+     * pdf-lib's drawText y-coordinate represents
+     * the text baseline, so move upward slightly
+     * from the bottom of the text box.
+     */
+    const textHeight =
+      font.heightAtSize(fontSize)
+
+    const textY =
+      pdfY +
+      (availableHeight - textHeight) / 2 +
+      padding
+
     page.drawText(edit.newText, {
-      x: edit.x,
-      y: pdfY,
-      size: Math.max(edit.height * 0.8, 8),
+      x: edit.x + padding,
+      y: textY,
+      size: fontSize,
       font,
       color: rgb(0, 0, 0),
     })
