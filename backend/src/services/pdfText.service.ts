@@ -1,49 +1,28 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
-
-export interface TextBlock {
-  text: string
-  x: number
-  y: number
-  width: number
-  height: number
-  fontSize: number
-}
-
-export interface PdfPageText {
-  pageNumber: number
-  width: number
-  height: number
-  blocks: TextBlock[]
-}
+import type {
+  PdfPageText,
+  TextBlock,
+} from '../types/pdf.types.js'
 
 export async function extractTextBlocks(
   buffer: Buffer,
 ): Promise<PdfPageText[]> {
-  const loadingTask = pdfjsLib.getDocument({
+  const pdf = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
-  })
+  }).promise
 
-  const pdf = await loadingTask.promise
   const pages: PdfPageText[] = []
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
     const page = await pdf.getPage(pageNumber)
-
-    const viewport = page.getViewport({
-      scale: 1,
-    })
-
+    const viewport = page.getViewport({ scale: 1 })
     const textContent = await page.getTextContent()
 
     const blocks: TextBlock[] = []
 
-    for (const item of textContent.items) {
-      if (!('str' in item)) {
-        continue
-      }
-
-      if (!item.str.trim()) {
-        continue
+    textContent.items.forEach((item, itemIndex) => {
+      if (!('str' in item) || !item.str.trim()) {
+        return
       }
 
       const transform = item.transform
@@ -51,26 +30,37 @@ export async function extractTextBlocks(
       const x = transform[4]
 
       const fontSize = Math.sqrt(
-  transform[0] ** 2 + transform[1] ** 2,
-)
+        transform[0] ** 2 + transform[1] ** 2,
+      )
 
-const height = Math.abs(transform[3]) || 1
+      const height =
+        Math.abs(transform[3]) ||
+        fontSize ||
+        1
 
+      const y =
+        viewport.height -
+        transform[5] -
+        height
 
-const y = viewport.height - transform[5] - height
+      const width = item.width
 
-const width = item.width
+      const fontRef =
+        'fontName' in item
+          ? item.fontName ?? null
+          : null
 
       blocks.push({
+        id: `page-${pageNumber}-block-${itemIndex}`,
         text: item.str,
         x,
         y,
         width,
         height,
-          fontSize,
-
+        originalFontSize: fontSize,
+        fontRef,
       })
-    }
+    })
 
     pages.push({
       pageNumber,
@@ -79,7 +69,6 @@ const width = item.width
       blocks,
     })
   }
-
 
   return pages
 }

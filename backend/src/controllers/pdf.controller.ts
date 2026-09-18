@@ -1,7 +1,21 @@
-import type { Request, Response, NextFunction } from 'express'
+import type {
+  Request,
+  Response,
+  NextFunction,
+} from 'express'
+
 import { getPdfInfo } from '../services/pdf.service.js'
+
 import { extractTextBlocks } from '../services/pdfText.service.js'
-import { applyTextEdits, type TextEdit } from '../services/pdfEdit.service.js'
+
+import {
+  applyTextEdits,
+  resolveTextEdits,
+} from '../services/pdfEdit.service.js'
+
+import type {
+  TextEditRequest,
+} from '../types/pdf.types.js'
 
 export async function uploadPdf(
   req: Request,
@@ -48,7 +62,9 @@ export async function extractPdfText(
       return
     }
 
-    const pages = await extractTextBlocks(req.file.buffer)
+    const pages = await extractTextBlocks(
+      req.file.buffer,
+    )
 
     res.status(200).json({
       success: true,
@@ -73,12 +89,20 @@ export async function editPdf(
       return
     }
 
-    const edits = req.body.parsedEdits as TextEdit[]
+    const edits =
+      req.body.parsedEdits as TextEditRequest[]
 
-    const editedPdf = await applyTextEdits(
-      req.file.buffer,
-      edits,
-    )
+    const resolvedEdits =
+      await resolveTextEdits(
+        req.file.buffer,
+        edits,
+      )
+
+    const editedPdf =
+      await applyTextEdits(
+        req.file.buffer,
+        resolvedEdits,
+      )
 
     res.setHeader(
       'Content-Type',

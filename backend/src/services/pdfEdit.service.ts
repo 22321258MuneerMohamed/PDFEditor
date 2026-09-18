@@ -1,105 +1,171 @@
 import {
   PDFDocument,
-  rgb,
   StandardFonts,
+  rgb,
 } from 'pdf-lib'
 
-export interface TextEdit {
-  pageNumber: number
-  x: number
-  y: number
-  width: number
-  height: number
-    fontSize?: number
+import type {
+  ResolvedTextEdit,
+  TextEditRequest,
+} from '../types/pdf.types.js'
 
-  newText: string
-  
+import { extractTextBlocks } from './pdfText.service.js'
+
+const fontMap: Record<
+  string,
+  {
+    normal: StandardFonts
+    bold: StandardFonts
+    italic: StandardFonts
+    boldItalic: StandardFonts
+  }
+> = {
+  helvetica: {
+    normal: StandardFonts.Helvetica,
+    bold: StandardFonts.HelveticaBold,
+    italic: StandardFonts.HelveticaOblique,
+    boldItalic: StandardFonts.HelveticaBoldOblique,
+  },
+
+  'arial': {
+    normal: StandardFonts.Helvetica,
+    bold: StandardFonts.HelveticaBold,
+    italic: StandardFonts.HelveticaOblique,
+    boldItalic: StandardFonts.HelveticaBoldOblique,
+  },
+
+  'times': {
+    normal: StandardFonts.TimesRoman,
+    bold: StandardFonts.TimesRomanBold,
+    italic: StandardFonts.TimesRomanItalic,
+    boldItalic: StandardFonts.TimesRomanBoldItalic,
+  },
+
+  'times new roman': {
+    normal: StandardFonts.TimesRoman,
+    bold: StandardFonts.TimesRomanBold,
+    italic: StandardFonts.TimesRomanItalic,
+    boldItalic: StandardFonts.TimesRomanBoldItalic,
+  },
+
+  'courier': {
+    normal: StandardFonts.Courier,
+    bold: StandardFonts.CourierBold,
+    italic: StandardFonts.CourierOblique,
+    boldItalic: StandardFonts.CourierBoldOblique,
+  },
+
+  'courier new': {
+    normal: StandardFonts.Courier,
+    bold: StandardFonts.CourierBold,
+    italic: StandardFonts.CourierOblique,
+    boldItalic: StandardFonts.CourierBoldOblique,
+  },
+}
+
+function getFont(
+  fontFamily: string,
+  fontWeight: 'normal' | 'bold',
+  fontStyle: 'normal' | 'italic',
+): StandardFonts {
+  const family = fontFamily.trim().toLowerCase()
+
+  const fonts = fontMap[family]
+
+  if (!fonts) {
+    throw new Error(
+      `Unsupported font family: ${fontFamily}`,
+    )
+  }
+
+  if (fontWeight === 'bold' && fontStyle === 'italic') {
+    return fonts.boldItalic
+  }
+
+  if (fontWeight === 'bold') {
+    return fonts.bold
+  }
+
+  if (fontStyle === 'italic') {
+    return fonts.italic
+  }
+
+  return fonts.normal
+}
+
+export async function resolveTextEdits(
+  buffer: Buffer,
+  edits: TextEditRequest[],
+): Promise<ResolvedTextEdit[]> {
+  const pages = await extractTextBlocks(buffer)
+
+  const blocks = pages.flatMap((page) =>
+    page.blocks.map((block) => ({
+      ...block,
+      pageNumber: page.pageNumber,
+    })),
+  )
+
+  return edits.map((edit) => {
+    const block = blocks.find(
+      (item) => item.id === edit.blockId,
+    )
+
+    if (!block) {
+      throw new Error(
+        `Text block not found: ${edit.blockId}`,
+      )
+    }
+
+    // Validate that the requested font is supported.
+    getFont(
+      edit.fontFamily,
+      edit.fontWeight ?? 'normal',
+      edit.fontStyle ?? 'normal',
+    )
+
+    return {
+      blockId: block.id,
+      pageNumber: block.pageNumber,
+      x: block.x,
+      y: block.y,
+      width: block.width,
+      height: block.height,
+      newText: edit.newText,
+      fontFamily: edit.fontFamily,
+      fontSize: edit.fontSize,
+      fontWeight: edit.fontWeight ?? 'normal',
+      fontStyle: edit.fontStyle ?? 'normal',
+    }
+  })
 }
 
 export async function applyTextEdits(
   buffer: Buffer,
-  edits: TextEdit[],
+  edits: ResolvedTextEdit[],
 ): Promise<Uint8Array> {
-  const pdf = await PDFDocument.load(buffer)
-
-  const font = await pdf.embedFont(
-    StandardFonts.Helvetica,
-  )
+  const pdfDoc = await PDFDocument.load(buffer)
 
   for (const edit of edits) {
-    if (
-      edit.pageNumber < 1 ||
-      edit.pageNumber > pdf.getPageCount()
-    ) {
-      throw new Error(
-        `Invalid page number: ${edit.pageNumber}`,
-      )
-    }
+    const page = pdfDoc.getPage(edit.pageNumber - 1)
 
-    if (edit.width <= 0 || edit.height <= 0) {
-      throw new Error(
-        'Edit width and height must be greater than zero.',
-      )
-    }
-
-    const page = pdf.getPage(
-      edit.pageNumber - 1,
-    )
-const pageWidth = page.getWidth()
-const pageHeight = page.getHeight()
-
-if (
-  edit.x >= pageWidth ||
-  edit.y >= pageHeight
-) {
-  throw new Error(
-    `Edit coordinates are outside page ${edit.pageNumber}.`,
-  )
-}
-
-if (
-  edit.x + edit.width > pageWidth ||
-  edit.y + edit.height > pageHeight
-) {
-  throw new Error(
-    `Edit area exceeds the boundaries of page ${edit.pageNumber}.`,
-  )
-}
-    const pdfY =
-      page.getHeight() -
-      edit.y -
-      edit.height
-
-    // Small padding so replacement text does not
-    // touch the edges of the original text box.
-    const padding = Math.min(
-      edit.height * 0.1,
-      2,
+    const fontName = getFont(
+      edit.fontFamily,
+      edit.fontWeight,
+      edit.fontStyle,
     )
 
-    const availableWidth =
-      edit.width - padding * 2
-
-    const availableHeight =
-      edit.height - padding * 2
-
-    /*
-     * Start with a font size based on the
-     * original text height.
-     */
-    const fontSize =
-  edit.fontSize ??
-  Math.max(availableHeight * 0.9, 8)
+    const font = await pdfDoc.embedFont(fontName)
 
     /*
      * Cover the original text.
      *
-     * This is visual replacement only and should
-     * NOT be considered secure redaction.
+     * This is intentionally simple for the MVP.
+     * It is NOT secure PDF redaction.
      */
     page.drawRectangle({
       x: edit.x,
-      y: pdfY,
+      y: page.getHeight() - edit.y - edit.height,
       width: edit.width,
       height: edit.height,
       color: rgb(1, 1, 1),
@@ -107,26 +173,24 @@ if (
     })
 
     /*
-     * pdf-lib's drawText y-coordinate represents
-     * the text baseline, so move upward slightly
-     * from the bottom of the text box.
+     * Draw exactly what the frontend requested.
+     *
+     * No font-size fitting.
+     * No width fitting.
+     * No automatic scaling.
+     * No visual preview calculations.
      */
-    const textHeight =
-      font.heightAtSize(fontSize)
-
-    const textY =
-      pdfY +
-      (availableHeight - textHeight) / 2 +
-      padding
-
     page.drawText(edit.newText, {
-      x: edit.x + padding,
-      y: textY,
-      size: fontSize,
+      x: edit.x,
+      y:
+        page.getHeight() -
+        edit.y -
+        edit.fontSize,
+      size: edit.fontSize,
       font,
       color: rgb(0, 0, 0),
     })
   }
 
-  return pdf.save()
+  return pdfDoc.save()
 }
