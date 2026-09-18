@@ -173,13 +173,9 @@ export async function applyTextEdits(
     })
 
     /*
-     * Draw exactly what the frontend requested.
-     *
-     * No font-size fitting.
-     * No width fitting.
-     * No automatic scaling.
-     * No visual preview calculations.
-     */
+ * Draw the replacement text using
+ * the properties supplied by the frontend.
+ */
     page.drawText(edit.newText, {
       x: edit.x,
       y:

@@ -5,7 +5,9 @@ export interface PdfInfo {
   fileSize: number
 }
 
-export async function getPdfInfo(buffer: Buffer): Promise<PdfInfo> {
+export async function getPdfInfo(
+  buffer: Buffer,
+): Promise<PdfInfo> {
   const pdf = await PDFDocument.load(buffer)
 
   return {
